@@ -71,6 +71,15 @@ function showCourses(list,origin){
 }
 function selectCourse(i){if(!courses[i])return;$('courses').value=String(i);$('courses').dispatchEvent(new Event('change'))}
 
+const VERIFIED_EXAMPLE_COURSES=[
+ {type:'way',id:30032040,tags:{name:'Kresson Golf Course'},center:{lat:39.84774,lon:-74.93165}},
+ {type:'way',id:40313557,tags:{name:'Golf Land'},center:{lat:39.85053,lon:-74.9776}}
+];
+function showLocalExamples(){
+ const list=VERIFIED_EXAMPLE_COURSES.map(x=>({...x,tags:{...x.tags}}));
+ showCourses(list,point(39.85,-74.95));
+ say('Showing two mapped example courses near Voorhees, NJ. Search another location for more courses, or tap a course to open its map.');
+}
 function coord(el){if(el.center)return point(el.center.lat,el.center.lon);if(el.lat!==undefined)return point(el.lat,el.lon);if(el.geometry?.length){const a=el.geometry;return point(a.reduce((v,x)=>v+x.lat,0)/a.length,a.reduce((v,x)=>v+x.lon,0)/a.length)}return null}
 $('find').onclick=async()=>{
   if(!pos){say('Tap Start GPS and allow location, or search a course by name or city.');return}
@@ -103,7 +112,7 @@ async function searchRealCourses(){
    const response=await fetch(endpoint,{headers:{'Accept':'application/json'}});
    if(!response.ok)throw Error('Location search returned HTTP '+response.status);
    const results=await response.json();
-   if(!results.length){say('No location found. Add a town, state, or country to your search.');return}
+   if(!results.length){say('No location found. Try a city and state. The two Voorhees-area examples remain available below.');return}
    const direct=results.filter(x=>x.type==='golf_course'||x.type==='golf'||x.class==='golf'||x.class==='leisure'&&x.type==='golf_course');
    let found=direct.map(x=>({type:x.osm_type,id:x.osm_id,tags:{name:x.name||x.display_name.split(',')[0]},center:{lat:+x.lat,lon:+x.lon}}));
    const loc=direct[0]||results[0],origin=point(loc.lat,loc.lon);
@@ -117,13 +126,13 @@ async function searchRealCourses(){
    const match=courses.findIndex(c=>String(c.tags?.name||'').toLowerCase().includes(termLow));
    if(match>=0)$('courses').selectedIndex=match+1;
    say('Found '+n+' real golf course'+(n===1?'':'s')+'. Choose a course in the dropdown to load it.');
- }catch(error){say('Course search failed: '+(error.message||'check your connection and retry'))}
+ }catch(error){say('Live search unavailable: '+(error.message||'check your connection')+'. Existing course buttons are still available below.')}
  finally{$('searchCourses').disabled=false}
 }
 $('searchCourses').onclick=searchRealCourses;
 $('courseSearch').addEventListener('keydown',e=>{if(e.key==='Enter')searchRealCourses()});
 $('courses').onchange=async e=>{if(e.target.value==='')return;let c=courses[Number(e.target.value)];if(e.target.value===''||!c)return;courseId=c.type+'-'+c.id;state=storage();courseCenter=coord(c);window.featureCourseSelected?.();$('courseTitle').textContent=c.tags?.name||'Unnamed golf course';hole=1;render();map.setView([courseCenter.lat,courseCenter.lon],16);say('Loading tee and green map data…');try{let p=courseCenter,es=await query('[out:json][timeout:25];(nwr["golf"="hole"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="tee"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="green"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="bunker"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="water_hazard"](around:1800,'+p.lat+','+p.lon+');nwr["natural"="water"](around:1800,'+p.lat+','+p.lon+'););out center geom;');let mapped=0;const hs=es.filter(x=>x.tags?.golf==='hole');for(let h of hs){let n=Number(h.tags?.ref||h.tags?.hole||h.tags?.['golf:hole']);if(n<1||n>18||!Number.isInteger(n))continue;let entry=state.holes[n]||(state.holes[n]={});let pts=h.geometry||[];if(pts.length>1){if(!entry.tee)entry.tee=point(pts[0].lat,pts[0].lon);if(!entry.center)entry.center=point(pts[pts.length-1].lat,pts[pts.length-1].lon);mapped++}}let greens=es.filter(x=>x.tags?.golf==='green');for(let g of greens){let n=Number(g.tags?.ref||g.tags?.hole);if(n>=1&&n<=18&&!state.holes[n]?.center){(state.holes[n]||(state.holes[n]={})).center=coord(g);mapped++}}let tees=es.filter(x=>x.tags?.golf==='tee');for(let t of tees){let n=Number(t.tags?.ref||t.tags?.hole);if(n>=1&&n<=18&&!state.holes[n]?.tee){(state.holes[n]||(state.holes[n]={})).tee=coord(t);mapped++}}save();render();fitHole();window.featureCourseLoaded?.(es);say(mapped?'Loaded available mapped hole features. Check markers before relying on yardages.':'No reliable hole mapping was found. Use Set tee and Set green center to add points.')}catch(err){say('Course selected, but hole data did not load: '+err.message+'. Manual markers still work.')}};
-render();
+render();showLocalExamples();
 </script><script src="./enhancements.js" onerror="document.getElementById('diagnostics').textContent='Feature script could not load. Check your internet connection and reload.'"></script>
 <script>
 (function(){
