@@ -124,7 +124,7 @@ $('cloudShowPassword').onclick=()=>{
 $('cloudForgot').onclick=async()=>{
  if(!client){status('Sign-in service is not ready. Refresh the page.');return}
  const email=$('cloudEmail').value.trim();
- if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){status('Enter your account email first, then tap Forgot password?.');return}
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){status('Enter your account email first, then tap Forgot password?.');return}
  $('cloudForgot').disabled=true;status('Requesting password recovery email…');
  try{
   const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:'https://colel0910.github.io/18-birdies-2.0/'});
