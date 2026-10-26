@@ -3,14 +3,78 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 *{box-sizing:border-box}body{margin:0;background:#081710;color:#f4fff8;font:15px system-ui,-apple-system,Arial,sans-serif}header{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:#11281a;border-bottom:1px solid #34563c}header b{font-size:23px}header span{color:#a6f37d}.badge{border-radius:20px;background:#294734;padding:7px 12px;font-size:12px}main{max-width:1280px;margin:auto;padding:14px;display:grid;grid-template-columns:350px minmax(0,1fr);gap:14px}aside{display:grid;gap:12px;align-content:start}.card{background:#132a1d;border:1px solid #34563c;border-radius:18px;padding:16px}.small{font-size:12px;color:#a4bba9}.hole{font-size:34px;font-weight:850}.yardgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:12px 0}.yardgrid div{text-align:center;background:#1e3a28;padding:11px 5px;border-radius:12px}.yardgrid strong{display:block;font-size:27px;color:#b7f983}.yardgrid label{font-size:12px;color:#b5ccbb}button,select{font:inherit}button{background:#a8ef77;border:none;border-radius:12px;padding:12px 9px;font-weight:750;color:#09220f;cursor:pointer}button.secondary{background:#30563b;color:white}button:disabled{opacity:.5}.buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}select{width:100%;background:#091d12;color:white;border:1px solid #42664a;border-radius:10px;padding:11px;margin-top:7px}.mapwrap{position:relative;min-height:78vh;border-radius:19px;overflow:hidden;border:1px solid #34563c}#map{width:100%;height:78vh;min-height:570px}.topmap{position:absolute;z-index:500;right:12px;top:12px;display:flex;gap:7px}.topmap button{background:#163122;color:white;padding:10px}.note{line-height:1.5;color:#bfcebF;font-size:12px}.status{background:#1d3d2a;color:#def5dc;border-radius:10px;padding:10px;font-size:13px}.score{display:flex;align-items:center;gap:12px}.score button{padding:8px 13px}.gpsdot{width:18px;height:18px;background:#339bff;border:3px solid white;box-shadow:0 0 0 7px #339bff44;border-radius:100%}@media(max-width:800px){main{grid-template-columns:1fr}.mapwrap{order:0;min-height:52vh}#map{height:52vh;min-height:380px}aside{order:1}.hole{font-size:30px}}
+</style><style>
+/* Polished golf-GPS layout — original styling inspired by modern golf apps */
+:root{--accent:#cbfa55;--ink:#07140d;--stroke:#31513a}
+body{background:#07140d;color:#f7f9f4}
+header{background:#0c2115;padding:15px 20px;border-bottom:1px solid #395840;box-shadow:0 4px 30px #0003}
+header b{font-weight:900;letter-spacing:-.7px}header span{color:var(--accent)}
+main{max-width:1700px;grid-template-columns:minmax(305px,390px) minmax(0,1fr);gap:12px;padding:12px}
+aside{max-height:calc(100vh - 96px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#43684a transparent;padding-right:3px}
+.card{background:#102519;border:1px solid #31503b;box-shadow:0 9px 25px #0002;padding:17px;border-radius:18px}
+.card strong{font-size:15px}.card .note{margin-bottom:0}
+button{border-radius:12px;transition:filter .15s,transform .15s;touch-action:manipulation}
+button:active{transform:scale(.985)}button:hover{filter:brightness(1.06)}
+button:not(.secondary){background:var(--accent);color:#0b2414}
+.yardgrid{margin:13px 0 10px;gap:6px}.yardgrid div{background:#1c3a27}.yardgrid strong{font-size:30px;color:#d6ff77}
+.yardgrid div:nth-child(2){background:#294b2c;outline:1px solid #658d44}.yardgrid div:nth-child(2) strong{font-size:39px}
+.small{color:#acc6b2}
+.mapwrap{min-height:calc(100vh - 105px);height:calc(100vh - 105px);border-radius:22px;border:1px solid #456144;box-shadow:0 18px 50px #0005}
+#map{height:100%;min-height:0}
+.topmap{right:15px;top:15px;display:flex;flex-wrap:wrap;max-width:calc(100% - 25px)}
+.topmap button{background:#0d261bdb;border:1px solid #6a8266;backdrop-filter:blur(10px)}
+.maptopbar{position:absolute;left:14px;top:14px;z-index:510;display:flex;gap:8px;align-items:center;pointer-events:none;max-width:52%}
+.maplabel{background:#112519e8;backdrop-filter:blur(12px);border:1px solid #60775d;color:#fafcf5;border-radius:13px;padding:10px 12px;font-size:12px;font-weight:800}
+.maplabel small{display:block;font-weight:500;color:#d2e2c7}
+.mapbottom{position:absolute;z-index:550;left:10px;right:10px;bottom:17px;pointer-events:none}
+.mapbottom > *{pointer-events:auto}
+#holeStrip{display:flex;gap:7px;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#68805f transparent;padding:10px 4px}
+.hole-chip{flex:0 0 58px;display:flex;flex-direction:column;align-items:center;gap:2px;background:#142b1ee9!important;color:#d4e3d6!important;border:1px solid #607567;border-radius:13px;padding:8px 4px;box-shadow:0 4px 15px #0005}
+.hole-chip small{font-size:9px;white-space:nowrap;color:#b3c5b7}
+.hole-chip-num{font-size:18px;font-weight:850}
+.hole-chip.mapped{border-color:#b2e37e}
+.hole-chip.partial{border-color:#d8bd71}
+.hole-chip.chosen{background:#cafa59!important;color:#082317!important;border-color:#cafa59;transform:translateY(-3px)}
+.hole-chip.chosen small{color:#22431c}
+#allHoles{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:12px}
+#allHoles .hole-chip{min-width:0;flex:unset;box-shadow:none}
+#holeStripArea{background:#081b11e9;backdrop-filter:blur(12px);border:1px solid #496448;border-radius:17px;padding:7px}
+.hole-nav-top{display:flex;align-items:center;justify-content:space-between;padding:4px 10px 0}
+.hole-nav-top strong{font-size:12px}#coverage{font-size:11px;color:#daecb2}
+#holeData{margin-top:9px;padding:10px;border-radius:10px;background:#243b28;font-size:12px;color:#d9edc9}
+.course-tee-icon,.course-green-icon{background:none;border:none}
+.course-tee-icon span,.course-green-icon span{display:grid;place-items:center;width:32px;height:32px;background:#fff;color:#183c23;border:3px solid #b4fb68;border-radius:100%;font-weight:900;font-size:11px;box-shadow:0 3px 10px #0009}
+.course-green-icon span{width:36px;height:36px;background:#d9fe67;color:#12290b;border-color:#fff}
+#courseResults{max-height:290px;overflow:auto}
+#courseResults button{border:1px solid #65826e;padding:13px!important}
+#courses{border:1px solid #739073;background:#0b2414}
+#courseSearch{font-size:15px}
+@media(max-width:900px){
+ main{display:flex;flex-direction:column;padding:0;gap:0}
+ .mapwrap{order:0;border:0;border-radius:0;height:58vh;min-height:430px}
+ #map{height:100%;min-height:0}
+ aside{order:1;max-height:none;overflow:visible;padding:12px;display:grid;gap:12px}
+ .maptopbar{max-width:55%}
+ .maplabel{padding:7px 9px;font-size:11px}
+ .topmap{top:11px;right:8px;max-width:42%;flex-direction:column}
+ .topmap button{padding:9px;font-size:12px}
+ .hole-chip{flex-basis:51px}
+ #holeStripArea{padding:4px}
+}
+@media(max-width:540px){
+ .mapwrap{height:57vh;min-height:390px}
+ .yardgrid strong{font-size:25px}
+ #allHoles{grid-template-columns:repeat(6,minmax(0,1fr))}
+ header{padding:12px 14px}header b{font-size:21px}
+}
 </style></head><body><header><b>⛳ 18 Birdies <span>2.0</span></b><div class="badge" id="gps">GPS offline</div></header>
 <main><aside>
 <section class="card"><div class="small" id="courseTitle">No course selected</div><div class="hole">Hole <span id="hole">1</span></div><div class="small">Live distance to green (yards)</div><div class="yardgrid"><div><label>FRONT</label><strong id="front">—</strong></div><div><label>CENTER</label><strong id="center">—</strong></div><div><label>BACK</label><strong id="back">—</strong></div></div><div class="buttons"><button class="secondary" id="prev">← Previous</button><button id="next">Next Hole →</button></div><p class="small" id="nextDistance">Next tee: unavailable</p><button class="secondary" id="showNextTee" style="width:100%" title="Display a straight-line bearing to the next tee, not a walking route">↗ Show next tee direction</button></section>
 <section class="card"><strong>Find your course</strong><div class="buttons"><button id="locate">📍 Start GPS</button><button class="secondary" id="find">Nearby courses</button></div><div style="display:flex;gap:7px;margin-top:10px"><input id="courseSearch" type="search" placeholder="Course name or city (e.g. Pine Valley, NJ)" aria-label="Search real golf courses" style="min-width:0;width:100%;background:#091d12;color:white;border:1px solid #42664a;border-radius:10px;padding:11px"><button id="searchCourses">Search</button></div><select id="courses" aria-label="Select course"><option value="">Select a course</option></select><div id="courseResults" aria-live="polite" style="display:grid;gap:8px;margin-top:9px"><p class="note">Search a city or course above to see course buttons here. GPS is optional.</p></div><button class="secondary" id="browseMapCourses" style="width:100%;margin-top:8px">Browse courses around map</button><p class="note">Search real golf courses by name or city worldwide, or use Nearby courses. Free OpenStreetMap data powers the map; exact tees, greens and hole numbers may be missing.</p></section>
-<section class="card"><strong>Hole navigator</strong><select id="holes" aria-label="Select hole"></select><div class="buttons"><button class="secondary" id="tee">Set tee point</button><button class="secondary" id="green">Set green center</button><button class="secondary" id="f">Set front edge</button><button class="secondary" id="b">Set back edge</button></div><div class="buttons"><button class="secondary" id="clear">Clear hole points</button><button class="secondary" id="fit">Show hole</button></div><p class="note">To correct missing map points: tap a Set button, then tap its location on the map. Points save locally for this course. Next Hole shows the next tee when mapped.</p></section>
+<section class="card"><strong>All 18 holes</strong><div id="allHoles" aria-label="Select any hole"></div><div id="holeData">Choose a course to map its holes.</div></section><section class="card"><strong>Hole navigator</strong><select id="holes" aria-label="Select hole"></select><div class="buttons"><button class="secondary" id="tee">Set tee point</button><button class="secondary" id="green">Set green center</button><button class="secondary" id="f">Set front edge</button><button class="secondary" id="b">Set back edge</button></div><div class="buttons"><button class="secondary" id="clear">Clear hole points</button><button class="secondary" id="fit">Show hole</button></div><p class="note">To correct missing map points: tap a Set button, then tap its location on the map. Points save locally for this course. Next Hole shows the next tee when mapped.</p></section>
 <section class="card"><div style="display:flex;justify-content:space-between;align-items:center"><strong>Scorecard</strong><div class="score"><button class="secondary" id="subtract">−</button><b id="score">—</b><button class="secondary" id="add">+</button></div></div><p class="small">Round total: <b id="total">0</b> strokes</p></section>
 <div class="status" id="status" role="status">Tap Start GPS and allow location to see nearby golf courses.</div><section class="card"><strong>App troubleshooting</strong><p class="note">If an update is stuck, clear the app cache without deleting saved courses or rounds.</p><button class="secondary" id="resetApp" type="button">Refresh app files</button><p id="diagnostics" class="note">Checking app…</p></section><div class="note">Built for GitHub Pages. Requires an internet connection, GPS permission and HTTPS. OpenStreetMap course data and phone GPS may be incomplete or inaccurate. Your saved hole points and scores stay in this browser. Do not use this for safety-critical navigation.</div>
-</aside><div class="mapwrap"><div id="map" aria-label="Interactive golf GPS map"></div><div class="topmap"><button id="sat">Satellite</button><button id="follow">◎ Center me</button></div></div></main>
+</aside><div class="mapwrap"><div id="map" aria-label="Interactive golf GPS map"></div><div class="maptopbar"><div class="maplabel">GPS COURSE MAP<small>Satellite • live yardage</small></div></div><div class="mapbottom"><div id="holeStripArea"><div class="hole-nav-top"><strong>HOLES 1—18</strong><span id="coverage">0/18 tee + green mapped</span></div><div id="holeStrip" aria-label="Course hole strip"></div></div></div><div class="topmap"><button id="sat">Satellite</button><button id="follow">◎ Center me</button></div></div></main>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script><script>if(!window.L){document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></scr'+'ipt>')}</script><script>
 const $=id=>document.getElementById(id);
 if(typeof L==='undefined'){document.getElementById('status').textContent='Map library failed to load. Check your connection and reload the page.';throw Error('Leaflet map library missing')}
@@ -22,12 +86,12 @@ const key=()=> 'golfgps-v1-'+(courseId||'manual'), storage=()=>{try{return JSON.
 let state=storage();const save=()=>{try{localStorage.setItem(key(),JSON.stringify(state))}catch{}};
 function say(msg){$('status').textContent=msg}function point(lat,lon){return {lat:Number(lat),lon:Number(lon)}}function meters(a,b){if(!a||!b)return null;let R=6371000,dlat=(b.lat-a.lat)*Math.PI/180,dlon=(b.lon-a.lon)*Math.PI/180,x=Math.sin(dlat/2)**2+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dlon/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}function yards(a,b){let n=meters(a,b);return n===null?'—':Math.round(n*1.093613).toLocaleString()}
 function holes(){return state.holes[hole]||(state.holes[hole]={})}
-function render(){if(window.featureRender)window.featureRender();if(nextTeeLine){map.removeLayer(nextTeeLine);nextTeeLine=null}const upcoming=state.holes[hole+1]?.tee;if(showTeeDirection&&pos&&upcoming)nextTeeLine=L.polyline([[pos.lat,pos.lon],[upcoming.lat,upcoming.lon]],{color:'#ffcf61',weight:4,dashArray:'8 8'}).addTo(map);let h=holes();$('hole').textContent=hole;$('holes').value=hole;$('front').textContent=yards(pos,h.front);$('center').textContent=yards(pos,h.center);$('back').textContent=yards(pos,h.back);$('score').textContent=state.scores[hole]??'—';$('total').textContent=Object.values(state.scores).reduce((x,n)=>x+Number(n||0),0);let nt=state.holes[hole+1]?.tee;$('nextDistance').textContent='Next tee: '+(pos&&nt?yards(pos,nt)+' yards away':nt?'Enable GPS for distance':'not mapped');group.clearLayers();const style={tee:'#46b7ff',front:'#d9e667',center:'#a3fd74',back:'#fdba74'};for(let k of ['tee','front','center','back'])if(h[k])L.circleMarker([h[k].lat,h[k].lon],{radius:k==='center'?10:7,color:'#fff',weight:2,fillColor:style[k],fillOpacity:1}).addTo(group).bindPopup(k.toUpperCase());if(pos&&h.center)L.polyline([[pos.lat,pos.lon],[h.center.lat,h.center.lon]],{color:'#b1f782',weight:3,dashArray:'7 8'}).addTo(group);if(nt)L.circleMarker([nt.lat,nt.lon],{radius:7,color:'#fff',fillColor:'#f9d44c',fillOpacity:1}).addTo(group).bindPopup('Next hole tee');}
+function render(){if(window.featureRender)window.featureRender();if(window.updateHoleStrip)window.updateHoleStrip();if(nextTeeLine){map.removeLayer(nextTeeLine);nextTeeLine=null}const upcoming=state.holes[hole+1]?.tee;if(showTeeDirection&&pos&&upcoming)nextTeeLine=L.polyline([[pos.lat,pos.lon],[upcoming.lat,upcoming.lon]],{color:'#ffcf61',weight:4,dashArray:'8 8'}).addTo(map);let h=holes();$('hole').textContent=hole;$('holes').value=hole;$('front').textContent=yards(pos,h.front);$('center').textContent=yards(pos,h.center);$('back').textContent=yards(pos,h.back);$('score').textContent=state.scores[hole]??'—';$('total').textContent=Object.values(state.scores).reduce((x,n)=>x+Number(n||0),0);let nt=state.holes[hole+1]?.tee;$('nextDistance').textContent='Next tee: '+(pos&&nt?yards(pos,nt)+' yards away':nt?'Enable GPS for distance':'not mapped');group.clearLayers();const style={tee:'#46b7ff',front:'#d9e667',center:'#a3fd74',back:'#fdba74'};for(let k of ['tee','front','center','back'])if(h[k])L.circleMarker([h[k].lat,h[k].lon],{radius:k==='center'?10:7,color:'#fff',weight:2,fillColor:style[k],fillOpacity:1}).addTo(group).bindPopup(k.toUpperCase());if(pos&&h.center)L.polyline([[pos.lat,pos.lon],[h.center.lat,h.center.lon]],{color:'#b1f782',weight:3,dashArray:'7 8'}).addTo(group);if(nt)L.circleMarker([nt.lat,nt.lon],{radius:7,color:'#fff',fillColor:'#f9d44c',fillOpacity:1}).addTo(group).bindPopup('Next hole tee');}
 function setHole(n){hole=Math.max(1,Math.min(18,n));mode='';showTeeDirection=false;render();fitHole();window.featureHoleChanged?.()}function fitHole(){let h=holes(),pts=['tee','front','center','back'].map(k=>h[k]).filter(Boolean);if(pts.length){const bounds=L.latLngBounds(pts.map(p=>[p.lat,p.lon]));map.fitBounds(bounds.pad(.5),{maxZoom:18})}else if(courseCenter)map.setView([courseCenter.lat,courseCenter.lon],16)}
 for(let i=1;i<=18;i++)$('holes').add(new Option('Hole '+i,i));$('holes').onchange=e=>setHole(+e.target.value);$('prev').onclick=()=>setHole(hole-1);$('next').onclick=()=>setHole(hole+1);$('fit').onclick=fitHole;
 for(let [id,m] of [['tee','tee'],['green','center'],['f','front'],['b','back']])$(id).onclick=()=>{mode=m;say('Tap the map to set the '+m+' point for hole '+hole)};
-map.on('click',e=>{if(!mode){say('Choose Set tee or Set green before tapping the map.');return}holes()[mode]=point(e.latlng.lat,e.latlng.lng);say('Saved '+mode+' point for hole '+hole);mode='';save();render()});
-$('clear').onclick=()=>{delete state.holes[hole];save();render();say('Cleared the manual points for hole '+hole)};
+map.on('click',e=>{if(!mode){say('Choose Set tee or Set green before tapping the map.');return}holes()[mode]=point(e.latlng.lat,e.latlng.lng);say('Saved '+mode+' point for hole '+hole);mode='';save();render();window.updateHoleStrip?.()});
+$('clear').onclick=()=>{delete state.holes[hole];save();render();window.updateHoleStrip?.();say('Cleared the manual points for hole '+hole)};
 $('add').onclick=()=>{state.scores[hole]=Number(state.scores[hole]||0)+1;save();render()};$('subtract').onclick=()=>{state.scores[hole]=Math.max(0,Number(state.scores[hole]||0)-1);save();render()};
 $('sat').onclick=()=>{if(sat){map.removeLayer(satellite);streets.addTo(map)}else{map.removeLayer(streets);satellite.addTo(map)}sat=!sat;$('sat').textContent=sat?'Map':'Satellite'};
 $('follow').onclick=()=>{if(pos)map.setView([pos.lat,pos.lon],17);else say('Tap Start GPS first')};
@@ -131,9 +195,13 @@ async function searchRealCourses(){
 }
 $('searchCourses').onclick=searchRealCourses;
 $('courseSearch').addEventListener('keydown',e=>{if(e.key==='Enter')searchRealCourses()});
-$('courses').onchange=async e=>{if(e.target.value==='')return;let c=courses[Number(e.target.value)];if(e.target.value===''||!c)return;courseId=c.type+'-'+c.id;state=storage();courseCenter=coord(c);window.featureCourseSelected?.();$('courseTitle').textContent=c.tags?.name||'Unnamed golf course';hole=1;render();map.setView([courseCenter.lat,courseCenter.lon],16);say('Loading tee and green map data…');try{let p=courseCenter,es=await query('[out:json][timeout:25];(nwr["golf"="hole"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="tee"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="green"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="bunker"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="water_hazard"](around:1800,'+p.lat+','+p.lon+');nwr["natural"="water"](around:1800,'+p.lat+','+p.lon+'););out center geom;');let mapped=0;const hs=es.filter(x=>x.tags?.golf==='hole');for(let h of hs){let n=Number(h.tags?.ref||h.tags?.hole||h.tags?.['golf:hole']);if(n<1||n>18||!Number.isInteger(n))continue;let entry=state.holes[n]||(state.holes[n]={});let pts=h.geometry||[];if(pts.length>1){if(!entry.tee)entry.tee=point(pts[0].lat,pts[0].lon);if(!entry.center)entry.center=point(pts[pts.length-1].lat,pts[pts.length-1].lon);mapped++}}let greens=es.filter(x=>x.tags?.golf==='green');for(let g of greens){let n=Number(g.tags?.ref||g.tags?.hole);if(n>=1&&n<=18&&!state.holes[n]?.center){(state.holes[n]||(state.holes[n]={})).center=coord(g);mapped++}}let tees=es.filter(x=>x.tags?.golf==='tee');for(let t of tees){let n=Number(t.tags?.ref||t.tags?.hole);if(n>=1&&n<=18&&!state.holes[n]?.tee){(state.holes[n]||(state.holes[n]={})).tee=coord(t);mapped++}}save();render();fitHole();window.featureCourseLoaded?.(es);say(mapped?'Loaded available mapped hole features. Check markers before relying on yardages.':'No reliable hole mapping was found. Use Set tee and Set green center to add points.')}catch(err){say('Course selected, but hole data did not load: '+err.message+'. Manual markers still work.')}};
+$('courses').onchange=async e=>{if(e.target.value==='')return;let c=courses[Number(e.target.value)];if(e.target.value===''||!c)return;courseId=c.type+'-'+c.id;state=storage();courseCenter=coord(c);window.featureCourseSelected?.();window.resetHoleLayers?.();$('courseTitle').textContent=c.tags?.name||'Unnamed golf course';hole=1;render();map.setView([courseCenter.lat,courseCenter.lon],16);say('Loading tee and green map data…');try{let p=courseCenter,es=await query('[out:json][timeout:25];(nwr["golf"="hole"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="tee"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="green"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="bunker"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="water_hazard"](around:1800,'+p.lat+','+p.lon+');nwr["natural"="water"](around:1800,'+p.lat+','+p.lon+'););out center geom;');const mapped=window.loadMappedCourse?window.loadMappedCourse(es):0;
+window.featureCourseLoaded?.(es);
+fitHole();
+say(mapped?'Loaded '+mapped+' hole(s) with mapped tees and greens. Unmapped holes remain selectable for manual setup.':'Course loaded, but numbered tee/green pairs are not fully available from OpenStreetMap. The 18-hole picker is ready for manual mapping.');
+}catch(err){say('Course selected, but hole data did not load: '+err.message+'. Manual markers still work.')}};
 render();showLocalExamples();
-</script><script src="./enhancements.js" onerror="document.getElementById('diagnostics').textContent='Feature script could not load. Check your internet connection and reload.'"></script>
+</script><script src="./course-map.js"></script><script src="./enhancements.js" onerror="document.getElementById('diagnostics').textContent='Feature script could not load. Check your internet connection and reload.'"></script>
 <script>
 (function(){
 const out=document.getElementById('diagnostics');
