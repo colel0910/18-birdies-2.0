@@ -34,36 +34,67 @@ $('follow').onclick=()=>{if(pos)map.setView([pos.lat,pos.lon],17);else say('Tap 
 $('showNextTee').onclick=()=>{let next=state.holes[hole+1]?.tee;if(!next){say('The next tee is not mapped yet. Select the next hole and set its tee point, then return here.');return}const dest=[next.lat,next.lon];if(pos){showTeeDirection=true;render();map.fitBounds(nextTeeLine.getBounds().pad(.25),{maxZoom:18});say('Next tee is '+yards(pos,next)+' yards away in a straight line. Follow course signs and cart paths; this line is not a walking route.')}else{map.setView(dest,18);say('Showing the next tee on the map. Start GPS for your straight-line distance.')}};
 function gps(){if(!navigator.geolocation){say('Geolocation is unsupported in this browser');return}say('Requesting location permission…');if(watch!==null)navigator.geolocation.clearWatch(watch);watch=navigator.geolocation.watchPosition(p=>{pos=point(p.coords.latitude,p.coords.longitude);$('gps').textContent='GPS ±'+Math.round(p.coords.accuracy)+' m';if(!userMarker){userMarker=L.marker([pos.lat,pos.lon],{icon:L.divIcon({className:'',html:'<div class="gpsdot"></div>',iconSize:[18,18]})}).addTo(map);map.setView([pos.lat,pos.lon],15)}else userMarker.setLatLng([pos.lat,pos.lon]);if(!accuracyCircle)accuracyCircle=L.circle([pos.lat,pos.lon],{radius:p.coords.accuracy,color:'#339bff',weight:1,fillOpacity:.04}).addTo(map);else accuracyCircle.setLatLng([pos.lat,pos.lon]).setRadius(p.coords.accuracy);render();say('GPS working. Tap Nearby courses, or set a hole point on the map.');window.featureGps?.(p)},err=>{$('gps').textContent='GPS unavailable';say('Location error: '+err.message+'. Enable location permission in your browser settings.')},{enableHighAccuracy:true,maximumAge:1500,timeout:20000})}
 $('locate').onclick=gps;
-const query=async q=>{for(const url of ['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter']){try{let r=await fetch(url,{method:'POST',body:new URLSearchParams({data:q}),signal:AbortSignal.timeout(18000)});if(r.ok)return (await r.json()).elements}catch(e){}}throw Error('Map-data service busy. Try again later.')};
+const query=async q=>{
+  const endpoints=['https://overpass.kumi.systems/api/interpreter','https://overpass-api.de/api/interpreter','https://overpass.nchc.org.tw/api/interpreter'];
+  let last='';
+  for(const url of endpoints){
+    try{
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),17000);
+      let r;try{r=await fetch(url,{method:'POST',body:new URLSearchParams({data:q}),signal:controller.signal})}finally{clearTimeout(timer)}
+      if(!r.ok)throw new Error('HTTP '+r.status);
+      const body=await r.json();if(!Array.isArray(body.elements))throw Error('Unexpected map response');
+      return body.elements;
+    }catch(e){last=String(e.message||e)}
+  }
+  throw new Error('Golf map search unavailable ('+last+'). Please try again in a moment.');
+};
+const COURSE_TAG='nwr["leisure"="golf_course"];nwr["golf"="course"]';
+function nearbyQuery(lat,lon,radius=12000){
+  return '[out:json][timeout:25];(nwr["leisure"="golf_course"](around:'+radius+','+lat+','+lon+');nwr["golf"="course"](around:'+radius+','+lat+','+lon+'););out center;';
+}
+function showCourses(list,origin){
+  const unique=new Map();for(const c of list){if(!coord(c))continue;const id=c.type+'-'+c.id;unique.set(id,c)}
+  courses=[...unique.values()].sort((a,b)=>origin?meters(origin,coord(a))-meters(origin,coord(b)):String(a.tags?.name||'').localeCompare(String(b.tags?.name||'')));
+  $('courses').replaceChildren(new Option('Choose a real golf course',''));
+  courses.forEach((c,i)=>{const name=c.tags?.name||'Unnamed golf course';const distance=origin?' · '+(meters(origin,coord(c))/1000).toFixed(1)+' km':'';$('courses').add(new Option(name+distance,i))});
+  if(courses.length){const p=coord(courses[0]);map.setView([p.lat,p.lon],12)}
+  return courses.length;
+}
 function coord(el){if(el.center)return point(el.center.lat,el.center.lon);if(el.lat!==undefined)return point(el.lat,el.lon);if(el.geometry?.length){const a=el.geometry;return point(a.reduce((v,x)=>v+x.lat,0)/a.length,a.reduce((v,x)=>v+x.lon,0)/a.length)}return null}
-$('find').onclick=async()=>{if(!pos){say('Start GPS before searching for courses.');return}say('Finding golf courses within about 12 km…');try{let es=await query('[out:json][timeout:20];(nwr["golf"="course"](around:12000,'+pos.lat+','+pos.lon+'););out center;');courses=es.filter(x=>coord(x)).sort((a,b)=>meters(pos,coord(a))-meters(pos,coord(b)));$('courses').innerHTML='<option value="">Choose nearby course</option>';courses.forEach((c,i)=>$('courses').add(new Option((c.tags?.name||'Unnamed golf course')+' · '+(meters(pos,coord(c))/1000).toFixed(1)+' km',i)));say(courses.length?'Found '+courses.length+' courses. Choose one to load mapped holes.':'No courses mapped nearby. You can still set points manually.')}catch(e){say(e.message)}};
+$('find').onclick=async()=>{
+  if(!pos){say('Tap Start GPS and allow location, or search a course by name or city.');return}
+  say('Finding real golf courses within 12 km…');
+  try{const found=await query(nearbyQuery(pos.lat,pos.lon));const count=showCourses(found,pos);
+    say(count?'Found '+count+' real golf courses. Choose one from the dropdown.':'No mapped golf courses within 12 km. Try searching a nearby town.')}
+  catch(e){say('Nearby course lookup failed: '+e.message)}
+};
 // Search for real golf courses by name or destination via OpenStreetMap Nominatim.
+
 async function searchRealCourses(){
  const term=$('courseSearch').value.trim();
  if(term.length<3){say('Enter at least three characters of a course name or city.');return}
- $('searchCourses').disabled=true;say('Searching OpenStreetMap for real golf courses…');
+ $('searchCourses').disabled=true;
+ say('Searching for courses near '+term+'…');
  try{
-   const endpoint='https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=20&q='+encodeURIComponent(term);
+   const endpoint='https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=15&q='+encodeURIComponent(term);
    const response=await fetch(endpoint,{headers:{'Accept':'application/json'}});
-   if(!response.ok)throw Error('Course search temporarily unavailable.');
+   if(!response.ok)throw Error('Location search returned HTTP '+response.status);
    const results=await response.json();
-   const golf=results.filter(x=>x.type==='golf_course'||x.type==='golf'||x.class==='golf'||x.addresstype==='golf_course');
-   // If a place was matched rather than a course, discover actual golf features around its center.
-   let found=golf.map(x=>({type:x.osm_type,id:x.osm_id,tags:{name:x.namedetails?.name||x.name||x.display_name.split(',')[0]},center:{lat:+x.lat,lon:+x.lon}}));
-   if(!found.length&&results.length){
-     const loc=results[0],lat=+loc.lat,lon=+loc.lon;
-     say('Finding golf courses around '+loc.display_name.split(',').slice(0,2).join(',')+'…');
-     const os=await query('[out:json][timeout:25];(nwr["golf"="course"](around:15000,'+lat+','+lon+'););out center;');
-     found=os.filter(x=>coord(x));
-   }
-   if(!found.length){say('No mapped golf courses found. Try a nearby city or a different name.');return}
-   const unique=new Map();for(const c of found){unique.set(c.type+'-'+c.id,c)}
-   courses=[...unique.values()];
-   $('courses').replaceChildren(new Option('Choose a real course',''));
-   courses.forEach((c,i)=>$('courses').add(new Option(c.tags?.name||'Unnamed golf course',i)));
-   let center=coord(courses[0]);if(center)map.setView([center.lat,center.lon],12);
-   say('Found '+courses.length+' mapped golf course'+(courses.length===1?'':'s')+'. Choose one from the dropdown to load holes and greens.');
- }catch(error){say(error.message||'Search failed. Please try another location.')}
+   if(!results.length){say('No location found. Add a town, state, or country to your search.');return}
+   const direct=results.filter(x=>x.type==='golf_course'||x.type==='golf'||x.class==='golf'||x.class==='leisure'&&x.type==='golf_course');
+   let found=direct.map(x=>({type:x.osm_type,id:x.osm_id,tags:{name:x.name||x.display_name.split(',')[0]},center:{lat:+x.lat,lon:+x.lon}}));
+   const loc=direct[0]||results[0],origin=point(loc.lat,loc.lon);
+   try{
+     const nearby=await query(nearbyQuery(origin.lat,origin.lon,direct.length?7000:13000));
+     found=[...found,...nearby];
+   }catch(e){if(!found.length)throw e}
+   const n=showCourses(found,origin);
+   if(!n){say('No OpenStreetMap golf courses found. Try searching a city or another nearby location.');return}
+   const termLow=term.toLowerCase();
+   const match=courses.findIndex(c=>String(c.tags?.name||'').toLowerCase().includes(termLow));
+   if(match>=0)$('courses').selectedIndex=match+1;
+   say('Found '+n+' real golf course'+(n===1?'':'s')+'. Choose a course in the dropdown to load it.');
+ }catch(error){say('Course search failed: '+(error.message||'check your connection and retry'))}
  finally{$('searchCourses').disabled=false}
 }
 $('searchCourses').onclick=searchRealCourses;
