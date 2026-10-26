@@ -90,9 +90,38 @@ window.loadMappedCourse=function(elements){
      L.marker([obj.center.lat,obj.center.lon],{icon}).addTo(pinLayer).bindPopup('Hole '+n+' green').on('click',()=>setHole(n));
    }
  }
- save();render();updateHoleStrip();
+ save();render();updateHoleStrip();mappingInstruction();
  return Array.from({length:18},(_,i)=>state.holes[i+1]||{}).filter(h=>h.tee&&h.center).length;
 };
-window.resetHoleLayers=function(){track.clearLayers();pinLayer.clearLayers();mapped={};updateHoleStrip()};
+
+let mappingWizard=false;
+function nextIncomplete(){
+ for(let n=1;n<=18;n++){const d=state.holes[n]||{};if(!d.tee||!d.center)return {n,key:!d.tee?'tee':'center'}}
+ return null;
+}
+function mappingInstruction(){
+ const g=$('mappingGuide');if(!g)return;
+ const missing=nextIncomplete();
+ if(!missing){mappingWizard=false;mode='';g.textContent='All 18 holes have tee and green coordinates saved. Review their locations against the actual course before playing.';return}
+ if(!mappingWizard){g.textContent='Select Map missing holes to add tee boxes and green centers one at a time.';return}
+ hole=missing.n;mode=missing.key;render();fitHole();
+ g.textContent='Hole '+hole+': tap the real '+(mode==='tee'?'TEE BOX':'GREEN CENTER')+' on the satellite map. Next missing location will be selected automatically.';
+ say('Mapping hole '+hole+' '+mode+'. Tap its exact position on the map.');
+}
+window.advanceMappingWizard=function(savedMode){if(!mappingWizard)return;mappingInstruction()};
+$('mapAllHoles').addEventListener('click',()=>{
+ if(!courseId){say('Select a real golf course first.');return}
+ mappingWizard=true;
+ if(!sat)$('sat').click();
+ mappingInstruction();
+});
+$('overview18').addEventListener('click',()=>{
+ const pts=[];
+ for(let n=1;n<=18;n++){const h=state.holes[n]||{};for(const k of ['tee','center'])if(h[k])pts.push([h[k].lat,h[k].lon])}
+ if(pts.length>1)map.fitBounds(L.latLngBounds(pts).pad(.12),{maxZoom:17});
+ else if(courseCenter)map.setView([courseCenter.lat,courseCenter.lon],15);
+ else say('Select a course first.');
+});
+window.resetHoleLayers=function(){mappingWizard=false;track.clearLayers();pinLayer.clearLayers();mapped={};updateHoleStrip();mappingInstruction()};
 window.addEventListener('load',()=>{updateHoleStrip()});
 })();
