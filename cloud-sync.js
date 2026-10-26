@@ -97,7 +97,7 @@ async function init(){
 async function auth(action){
  if(!client){status('Sign-in service has not loaded. Check your connection, then refresh the page.');return}
  const email=$('cloudEmail').value.trim(),password=$('cloudPassword').value;
- if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||password.length<6){status('Enter a valid email and a password of at least 6 characters.');return}
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||password.length<6){status('Enter a valid email and a password of at least 6 characters.');return}
  const login=$('cloudLogin'),signup=$('cloudSignup');login.disabled=true;signup.disabled=true;
  status(action==='login'?'Signing in…':'Creating account…');
  try{
