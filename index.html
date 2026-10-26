@@ -201,7 +201,7 @@ async function searchRealCourses(){
 }
 $('searchCourses').onclick=searchRealCourses;
 $('courseSearch').addEventListener('keydown',e=>{if(e.key==='Enter')searchRealCourses()});
-$('courses').onchange=async e=>{if(e.target.value==='')return;let c=courses[Number(e.target.value)];if(e.target.value===''||!c)return;courseId=c.type+'-'+c.id;state=storage();courseCenter=coord(c);window.featureCourseSelected?.();window.resetHoleLayers?.();$('courseTitle').textContent=c.tags?.name||'Unnamed golf course';hole=1;render();map.setView([courseCenter.lat,courseCenter.lon],16);say('Loading tee and green map data…');try{let p=courseCenter,es=await query('[out:json][timeout:25];(nwr["golf"="hole"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="tee"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="green"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="bunker"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="water_hazard"](around:1800,'+p.lat+','+p.lon+');nwr["natural"="water"](around:1800,'+p.lat+','+p.lon+'););out center geom;');const mapped=window.loadMappedCourse?window.loadMappedCourse(es):0;
+$('courses').onchange=async e=>{if(e.target.value==='')return;let c=courses[Number(e.target.value)];if(e.target.value===''||!c)return;courseId=c.type+'-'+c.id;state=storage();courseCenter=coord(c);window.featureCourseSelected?.();window.resetHoleLayers?.();$('courseTitle').textContent=c.tags?.name||'Unnamed golf course';hole=1;render();map.setView([courseCenter.lat,courseCenter.lon],16);window.focusKressonSatellite?.();say('Loading tee and green map data…');try{let p=courseCenter,es=await query('[out:json][timeout:25];(nwr["golf"="hole"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="tee"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="green"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="bunker"](around:1800,'+p.lat+','+p.lon+');nwr["golf"="water_hazard"](around:1800,'+p.lat+','+p.lon+');nwr["natural"="water"](around:1800,'+p.lat+','+p.lon+'););out center geom;');const mapped=window.loadMappedCourse?window.loadMappedCourse(es):0;
 window.featureCourseLoaded?.(es);
 fitHole();
 say(mapped?'Loaded '+mapped+' hole(s) with mapped tees and greens. Unmapped holes remain selectable for manual setup.':'Course loaded, but numbered tee/green pairs are not fully available from OpenStreetMap. The 18-hole picker is ready for manual mapping.');
@@ -219,4 +219,4 @@ location.href=location.pathname+'?refresh='+Date.now()
 };
 check();window.addEventListener('online',check);window.addEventListener('offline',check);
 })();
-</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0"></script><script src="./cloud-sync.js"></script><script src="./course-reference.js"></script></body></html>
+</script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.0"></script><script src="./cloud-sync.js"></script><script src="./course-reference.js"></script><script src="./rangefinder.js"></script></body></html>
