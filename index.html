@@ -75,15 +75,22 @@ function coord(el){if(el.center)return point(el.center.lat,el.center.lon);if(el.
 $('find').onclick=async()=>{
   if(!pos){say('Tap Start GPS and allow location, or search a course by name or city.');return}
   say('Finding real golf courses within 12 km…');
-  try{const found=await query(nearbyQuery(pos.lat,pos.lon));const count=showCourses(found,pos);
+  try{let found;try{found=await query(nearbyQuery(pos.lat,pos.lon))}catch{found=await fallbackCourses(pos.lat,pos.lon)}const count=showCourses(found,pos);
     say(count?'Found '+count+' real golf courses. Choose one from the dropdown.':'No mapped golf courses within 12 km. Try searching a nearby town.')}
   catch(e){say('Nearby course lookup failed: '+e.message)}
 };
 $('browseMapCourses').onclick=async()=>{
   const p=map.getCenter();say('Searching courses around the map center…');
-  try{const count=showCourses(await query(nearbyQuery(p.lat,p.lng,20000)),point(p.lat,p.lng));say(count?'Found '+count+' courses. Tap one of the course buttons.':'No courses found around this map area. Try a different town.')}
+  try{let found;try{found=await query(nearbyQuery(p.lat,p.lng,20000))}catch{found=await fallbackCourses(p.lat,p.lng)}const count=showCourses(found,point(p.lat,p.lng));say(count?'Found '+count+' courses. Tap one of the course buttons.':'No courses found around this map area. Try a different town.')}
   catch(e){say('Map course lookup failed: '+e.message)}
 };
+async function fallbackCourses(lat,lon){
+ const d=.18,box=[lon-d,lat+d,lon+d,lat-d].join(',');
+ const u='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=40&bounded=1&viewbox='+encodeURIComponent(box)+'&q='+encodeURIComponent('golf course');
+ const r=await fetch(u,{headers:{Accept:'application/json'}});if(!r.ok)throw Error('Course directory unavailable');
+ const es=await r.json();
+ return es.filter(x=>x.type==='golf_course'||x.class==='leisure'&&x.type==='golf_course').map(x=>({type:x.osm_type,id:x.osm_id,tags:{name:x.name||x.display_name.split(',')[0]},center:{lat:+x.lat,lon:+x.lon}}));
+}
 // Search for real golf courses by name or destination via OpenStreetMap Nominatim.
 
 async function searchRealCourses(){
@@ -101,7 +108,7 @@ async function searchRealCourses(){
    let found=direct.map(x=>({type:x.osm_type,id:x.osm_id,tags:{name:x.name||x.display_name.split(',')[0]},center:{lat:+x.lat,lon:+x.lon}}));
    const loc=direct[0]||results[0],origin=point(loc.lat,loc.lon);
    try{
-     const nearby=await query(nearbyQuery(origin.lat,origin.lon,direct.length?7000:13000));
+     let nearby=[];try{nearby=await query(nearbyQuery(origin.lat,origin.lon,direct.length?7000:13000))}catch(error){nearby=await fallbackCourses(origin.lat,origin.lon)}
      found=[...found,...nearby];
    }catch(e){if(!found.length)throw e}
    const n=showCourses(found,origin);
