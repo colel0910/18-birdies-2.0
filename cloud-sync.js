@@ -32,7 +32,20 @@ function merge(remote,local){
  return {holes,scores};
 }
 function updateView(){if(!client)return;const signed=!!user;$('cloudAuth').style.display=signed?'none':'block';$('cloudConnected').style.display=signed?'block':'none';$('cloudAccount').textContent=signed?'Connected: '+(user.email||'signed-in user'):'';}
-function messageError(e){const m=e?.message||String(e);if(/golf_cloud_courses|schema cache|relation .* does not exist|42P01|PGRST205/i.test(m))return 'Cloud table not configured yet. Run the SQL setup file in your Supabase SQL Editor.';if(/row-level security|permission denied|42501/i.test(m))return 'Cloud permission error. Check the row security policies in the SQL setup file.';return m}
+function messageError(e){
+ const m=e?.message||String(e),code=String(e?.code||'').toLowerCase(),statusCode=Number(e?.status||0);
+ if(code==='over_email_send_rate_limit'||/email rate limit exceeded|email rate limit/i.test(m))return 'Supabase has reached its confirmation-email limit. Do not keep retrying. Check Authentication → Logs and Email settings in Supabase; sending more confirmation emails requires an approved SMTP setup.';
+ if(code==='email_address_not_authorized')return 'Supabase default email service cannot send to this address. Configure an approved custom SMTP sender in Supabase Authentication → SMTP settings.';
+ if(code==='email_provider_disabled'||/signups? (are |is )?disabled|email signups disabled/i.test(m))return 'Email/password signup is disabled in Supabase. Enable the Email provider and Allow new users to sign up.';
+ if(code==='email_exists'||/user already registered/i.test(m))return 'An account may already exist for this email. Try Sign in or use password recovery in Supabase.';
+ if(code==='email_not_confirmed'||/email not confirmed/i.test(m))return 'Your email is not confirmed yet. Check your inbox and spam folder for the confirmation link.';
+ if(code==='weak_password'||/password should be at least|weak password/i.test(m))return 'Use a stronger password that meets the project password rules.';
+ if(code==='over_request_rate_limit'||statusCode===429)return 'Too many signup requests. Check Supabase Authentication → Logs for the rate-limit details before retrying.';
+ if(/failed to fetch|networkerror|network request failed/i.test(m))return 'Could not reach Supabase. Check your connection and Safari content blockers.';
+ if(/golf_cloud_courses|schema cache|relation .* does not exist|42P01|PGRST205/i.test(m))return 'Cloud storage table is not set up yet. Run setup-golf-cloud.sql in your Supabase SQL Editor. Your account is still valid.';
+ if(/row-level security|permission denied|42501/i.test(m))return 'Cloud storage permission error. Verify the SQL table security policies; your account is still valid.';
+ return 'Supabase: '+m+(code?' ('+code+')':'');
+}
 async function sync(){
  if(!client||!user||!ready)return;
  if(busy){repeat=true;return}
@@ -70,7 +83,7 @@ async function loggedIn(next){
  ready=true;await sync();
 }
 async function init(){
- if(!window.supabase?.createClient){status('Cloud sign-in library did not load. Check internet and refresh.');return}
+ if(!window.supabase?.createClient){status('Cloud sign-in library did not load. Check internet and refresh.');$('cloudLogin').disabled=true;$('cloudSignup').disabled=true;return}
  client=window.supabase.createClient(url,publishable,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
  try{
   const {data,error}=await client.auth.getUser();if(error&&/invalid|expired|missing/i.test(error.message||'')){await client.auth.signOut()}
@@ -82,18 +95,26 @@ async function init(){
  }catch(e){status('Cloud connection error: '+messageError(e))}
 }
 async function auth(action){
+ if(!client){status('Sign-in service has not loaded. Check your connection, then refresh the page.');return}
  const email=$('cloudEmail').value.trim(),password=$('cloudPassword').value;
- if(!email.includes('@')||password.length<6){status('Enter a valid email and password of at least 6 characters.');return}
- const button=$('cloud'+(action==='login'?'Login':'Signup'));button.disabled=true;
+ if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)||password.length<6){status('Enter a valid email and a password of at least 6 characters.');return}
+ const login=$('cloudLogin'),signup=$('cloudSignup');login.disabled=true;signup.disabled=true;
  status(action==='login'?'Signing in…':'Creating account…');
  try{
-  const {data,error}=action==='login'?await client.auth.signInWithPassword({email,password}):await client.auth.signUp({email,password});
+  const opts={email,password};
+  if(action==='signup')opts.options={emailRedirectTo:'https://colel0910.github.io/18-birdies-2.0/'};
+  const {data,error}=action==='login'?await client.auth.signInWithPassword(opts):await client.auth.signUp(opts);
   if(error)throw error;
   $('cloudPassword').value='';
-  if(data?.session&&data?.user)await loggedIn(data.user);
-  else status('Account created. Check your email for a confirmation link, then return and sign in. Email delivery is subject to your Supabase limits.');
- }catch(e){status('Sign-in failed: '+messageError(e))}
- finally{button.disabled=false}
+  if(data?.session&&data?.user){
+   await loggedIn(data.user);
+  }else if(action==='signup'){
+   status('Signup submitted. If your address is eligible, check your inbox and spam folder for the confirmation link. Return here to sign in afterward.');
+  }else{
+   status('No session returned. Check whether your email requires confirmation.');
+  }
+ }catch(e){status((action==='login'?'Sign in':'Create account')+' failed: '+messageError(e))}
+ finally{login.disabled=false;signup.disabled=false}
 }
 $('cloudLogin').onclick=()=>auth('login');
 $('cloudSignup').onclick=()=>auth('signup');
